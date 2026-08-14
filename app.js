@@ -73,6 +73,12 @@ const appState = {
   workbenchTab: "综合",
   sidebarCollapsed: false,
   mobileSidebar: false,
+  moduleQaOpen: false,
+  moduleQaMessages: [],
+  moduleQaSidebarWasCollapsed: null,
+  moduleQaWidth: 420,
+  conversationPanelWidth: null,
+  conversationPanelListWidth: 380,
 };
 
 const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, character => ({
@@ -290,9 +296,9 @@ function sidebar() {
   return `
     <aside class="sidebar ${appState.mobileSidebar ? "open" : ""}">
       <div class="sidebar-brand"><img class="sidebar-brand-art" src="${figmaAsset("datayesir-brand.svg")}" alt="Datayesir" /><button class="collapse" data-action="toggle-sidebar" aria-label="${appState.sidebarCollapsed ? "展开侧栏" : "收起侧栏"}" title="${appState.sidebarCollapsed ? "展开侧栏" : "收起侧栏"}"><img src="${figmaAsset("sidebar-collapse.svg")}" alt="" /></button></div>
-      <div class="mode-switch">
-        <button class="mode-button ${isAI ? "active" : ""}" data-page="ai">AI问答</button>
-        <button class="mode-button ${isWork ? "active" : ""}" data-page="work">RoboWork</button>
+      <div class="mode-switch" role="tablist" aria-label="工作模式">
+        <button class="mode-button ${isAI ? "active" : ""}" data-page="ai" role="tab" aria-selected="${isAI}">AI问答</button>
+        <button class="mode-button ${isWork ? "active" : ""}" data-page="work" role="tab" aria-selected="${isWork}">RoboWork</button>
       </div>
       <button class="new-button ${isAI ? "" : "work"}" data-action="new-task"><img class="new-asset" src="${figmaAsset(isAI ? "new-ai.png" : "new-work.png")}" alt="" />${isAI ? "新会话" : "新任务"}</button>
       <div class="sidebar-scroll">${isAI ? aiSidebarContent() : workSidebarContent()}</div>
@@ -602,7 +608,7 @@ function artifactContent(artifact) {
 function artifactKnowledgeButton(index, compact = false) {
   const added = appState.knowledgeArtifacts.includes(index);
   const label = added ? "已添加到知识库" : "添加到知识库";
-  return `<button class="${compact ? "artifact-list-knowledge" : "artifact-knowledge-button"} ${added ? "added" : ""}" data-action="add-artifact-to-knowledge" data-artifact-index="${index}" aria-label="${label}" title="${label}">${icon(added ? "check" : "book")}${compact ? "" : `<span>${label}</span>`}</button>`;
+  return `<button class="${compact ? "artifact-list-knowledge" : "artifact-knowledge-button"} ${added ? "added" : ""}" data-action="add-artifact-to-knowledge" data-artifact-index="${index}" aria-label="${label}" title="${label}">${icon(added ? "check" : "knowledge-book")}${compact ? "" : `<span>${label}</span>`}</button>`;
 }
 
 function artifactPanel() {
@@ -617,10 +623,10 @@ function artifactPanel() {
     return `<span class="panel-tab ${active ? "active" : ""}" title="${escapeHtml(tabName)}" role="tab" aria-selected="${active}"><button class="panel-tab-label-button" data-action="activate-artifact-tab" data-artifact-index="${index}" tabindex="${active ? "0" : "-1"}"><span class="panel-tab-label">${escapeHtml(tabName)}</span></button><button class="panel-tab-close" data-action="close-artifact-tab" data-artifact-index="${index}" aria-label="关闭${escapeHtml(tabName)}">${icon("x")}</button></span>`;
   }).join("")}</div><button class="panel-close" data-action="close-work-panel" aria-label="关闭侧栏">${icon("x")}</button></div>`;
   if (showingList) {
-    return `<aside class="conversation-panel artifact-list-panel">${tabbar}<div class="artifact-list">${workArtifacts.map((item, index) => `<div class="artifact-list-item"><button class="artifact-list-open" data-action="open-artifact" data-artifact-index="${index}"><span class="artifact-type" style="--artifact-color:${item.color}">${item.type.slice(0, 1)}</span><span>${escapeHtml(item.name)}</span></button>${artifactKnowledgeButton(index, true)}</div>`).join("")}</div></aside>`;
+    return `<aside class="conversation-panel artifact-list-panel">${panelResizeHandle("conversation", appState.conversationPanelListWidth, 280, 920, "调整对话与产物列表宽度")}${tabbar}<div class="artifact-list">${workArtifacts.map((item, index) => `<div class="artifact-list-item"><button class="artifact-list-open" data-action="open-artifact" data-artifact-index="${index}"><span class="artifact-type" style="--artifact-color:${item.color}">${item.type.slice(0, 1)}</span><span>${escapeHtml(item.name)}</span></button>${artifactKnowledgeButton(index, true)}</div>`).join("")}</div></aside>`;
   }
-  if (editing) return `<aside class="conversation-panel artifact-detail-panel">${tabbar}<div class="artifact-document">${artifactEditor(artifact)}</div></aside>`;
-  return `<aside class="conversation-panel artifact-detail-panel">${tabbar}<div class="artifact-document"><div class="artifact-detail-header"><div><h2>${escapeHtml(artifactTitle(artifact))}</h2><small>${escapeHtml(artifact.name)}</small></div><div class="artifact-detail-actions"><button class="artifact-edit-button" data-action="edit-artifact" data-artifact-index="${appState.selectedArtifact}">${icon("edit")}<span>编辑</span></button>${artifactKnowledgeButton(appState.selectedArtifact)}</div></div>${artifact.type === "PDF" ? artifactDocumentText(artifact) : `<div class="generic-artifact-preview"><span class="artifact-type large" style="--artifact-color:${artifact.color}">${artifact.type.slice(0, 1)}</span><h3>${escapeHtml(artifact.name)}</h3><p>${escapeHtml(artifactContent(artifact))}</p></div>`}</div></aside>`;
+  if (editing) return `<aside class="conversation-panel artifact-detail-panel">${panelResizeHandle("conversation", appState.conversationPanelWidth || 620, 280, 920, "调整对话与产物详情宽度")}${tabbar}<div class="artifact-document">${artifactEditor(artifact)}</div></aside>`;
+  return `<aside class="conversation-panel artifact-detail-panel">${panelResizeHandle("conversation", appState.conversationPanelWidth || 620, 280, 920, "调整对话与产物详情宽度")}${tabbar}<div class="artifact-document"><div class="artifact-detail-header"><div><h2>${escapeHtml(artifactTitle(artifact))}</h2><small>${escapeHtml(artifact.name)}</small></div><div class="artifact-detail-actions"><button class="artifact-edit-button" data-action="edit-artifact" data-artifact-index="${appState.selectedArtifact}">${icon("edit")}<span>编辑</span></button>${artifactKnowledgeButton(appState.selectedArtifact)}</div></div>${artifact.type === "PDF" ? artifactDocumentText(artifact) : `<div class="generic-artifact-preview"><span class="artifact-type large" style="--artifact-color:${artifact.color}">${artifact.type.slice(0, 1)}</span><h3>${escapeHtml(artifact.name)}</h3><p>${escapeHtml(artifactContent(artifact))}</p></div>`}</div></aside>`;
 }
 
 function artifactDocumentText(artifact) {
@@ -638,7 +644,7 @@ function workbenchPanel() {
   const filtered = appState.workbenchTab === "综合" ? workReferences : workReferences.filter(item => item.type === appState.workbenchTab);
   const openedTabs = appState.openedReferenceTabs.filter(index => workReferences[index]);
   const tabbar = workbenchTabbar(true, openedTabs);
-  return `<aside class="conversation-panel workbench-panel">${tabbar}<div class="workbench-body"><label class="workbench-search"><input type="search" placeholder="搜索资源" aria-label="搜索资源" />${icon("search")}</label><div class="workbench-tabs">${tabs.map(tab => `<button class="${appState.workbenchTab === tab ? "active" : ""}" data-workbench-tab="${tab}">${tab}</button>`).join("")}</div><div class="reference-list">${filtered.map(item => { const index = workReferences.indexOf(item); return `<button class="reference-item" data-action="open-reference" data-reference-index="${index}"><div class="reference-title"><span class="reference-tag ${item.color}">${item.type}</span><strong>${escapeHtml(item.title)}</strong></div><p>根据年报数据显示，宁德时代2024年公司营业收入约3011.27亿元，总营收超越去年，而且净利润高达136.31亿元，同比增长最快…</p><div class="reference-meta"><span>${escapeHtml(item.source)}</span><span>${escapeHtml(item.date)}</span></div>${item.meta ? `<small>${escapeHtml(item.meta)}</small>` : ""}</button>`; }).join("") || `<div class="reference-empty">暂无该类引用</div>`}</div></div></aside>`;
+  return `<aside class="conversation-panel workbench-panel">${panelResizeHandle("conversation", appState.conversationPanelListWidth, 280, 920, "调整对话与工作台宽度")}${tabbar}<div class="workbench-body"><label class="workbench-search"><input type="search" placeholder="搜索资源" aria-label="搜索资源" />${icon("search")}</label><div class="workbench-tabs">${tabs.map(tab => `<button class="${appState.workbenchTab === tab ? "active" : ""}" data-workbench-tab="${tab}">${tab}</button>`).join("")}</div><div class="reference-list">${filtered.map(item => { const index = workReferences.indexOf(item); return `<button class="reference-item" data-action="open-reference" data-reference-index="${index}"><div class="reference-title"><span class="reference-tag ${item.color}">${item.type}</span><strong>${escapeHtml(item.title)}</strong></div><p>根据年报数据显示，宁德时代2024年公司营业收入约3011.27亿元，总营收超越去年，而且净利润高达136.31亿元，同比增长最快…</p><div class="reference-meta"><span>${escapeHtml(item.source)}</span><span>${escapeHtml(item.date)}</span></div>${item.meta ? `<small>${escapeHtml(item.meta)}</small>` : ""}</button>`; }).join("") || `<div class="reference-empty">暂无该类引用</div>`}</div></div></aside>`;
 }
 
 function workbenchTabbar(showingList, openedTabs = appState.openedReferenceTabs.filter(index => workReferences[index])) {
@@ -652,7 +658,7 @@ function workbenchTabbar(showingList, openedTabs = appState.openedReferenceTabs.
 function referenceDetailPanel() {
   const reference = workReferences[appState.selectedReference] || workReferences[0];
   const isReport = appState.selectedReference === 4;
-  return `<aside class="conversation-panel reference-detail-panel">${workbenchTabbar(false)}<div class="reference-detail-body"><h2>${escapeHtml(reference.title)}</h2>${isReport ? `<div class="reference-report-view"><img src="${figmaAsset("reference/hsbc-toolbar.png")}" alt="研报工具栏" /><img src="${figmaAsset("reference/hsbc-page-top.png")}" alt="汇丰研报原文上半部" /><img src="${figmaAsset("reference/hsbc-page-bottom.png")}" alt="汇丰研报原文下半部" /></div>` : `<div class="reference-article"><span class="reference-tag ${reference.color}">${reference.type}</span><p>本文梳理了公司最新经营情况、行业格局与核心财务数据，重点分析收入、利润及长期增长动能。</p><p>根据已披露数据，公司的竞争优势主要来自技术积累、供应链整合与规模效应。未来仍需关注行业需求、价格变化与政策环境。</p><div class="reference-origin">${escapeHtml(reference.source)} · ${escapeHtml(reference.date)}</div></div>`}</div></aside>`;
+  return `<aside class="conversation-panel reference-detail-panel">${panelResizeHandle("conversation", appState.conversationPanelWidth || 620, 280, 920, "调整对话与引用详情宽度")}${workbenchTabbar(false)}<div class="reference-detail-body"><h2>${escapeHtml(reference.title)}</h2>${isReport ? `<div class="reference-report-view"><img src="${figmaAsset("reference/hsbc-toolbar.png")}" alt="研报工具栏" /><img src="${figmaAsset("reference/hsbc-page-top.png")}" alt="汇丰研报原文上半部" /><img src="${figmaAsset("reference/hsbc-page-bottom.png")}" alt="汇丰研报原文下半部" /></div>` : `<div class="reference-article"><span class="reference-tag ${reference.color}">${reference.type}</span><p>本文梳理了公司最新经营情况、行业格局与核心财务数据，重点分析收入、利润及长期增长动能。</p><p>根据已披露数据，公司的竞争优势主要来自技术积累、供应链整合与规模效应。未来仍需关注行业需求、价格变化与政策环境。</p><div class="reference-origin">${escapeHtml(reference.source)} · ${escapeHtml(reference.date)}</div></div>`}</div></aside>`;
 }
 
 function workConversationPage() {
@@ -769,6 +775,39 @@ function apiDetail() {
       <section class="api-section"><h3>请求参数</h3><div class="param-list"><div class="param-card"><div class="param-main"><span class="param-name">目录ID</span><span class="code-pill">id</span><span class="optional">可选</span><span class="param-kind">Query · integer</span></div><div class="param-desc">说明 <strong>id 和 name 不能同时传</strong></div></div><div class="param-card"><div class="param-main"><span class="param-name">目录名称</span><span class="code-pill">name</span><span class="optional">可选</span><span class="param-kind">Query · string</span></div><div class="param-desc">默认值 <strong>公告API</strong></div></div></div></section>
       <section class="api-section"><h3>返回参数</h3><div class="param-list"><div class="param-card"><div class="param-main"><span class="param-name">状态码</span><span class="code-pill">code</span><span class="param-kind">Body · integer</span></div><div class="param-desc">说明 <strong>1代表成功</strong></div></div><div class="param-card"><div class="param-main"><span class="param-name">返回API目录列表</span><span class="code-pill">data</span><span class="param-kind">Body · array</span></div><div class="param-desc">说明 <strong>包含目录层级、接口名称与引用信息</strong></div></div></div></section>
     </article>`;
+}
+
+function panelResizeHandle(kind, width, min, max, label) {
+  return `<div class="panel-resizer ${kind}-resizer" data-resize-handle="${kind}" role="separator" aria-orientation="vertical" aria-label="${label}" aria-valuemin="${min}" aria-valuemax="${max}" aria-valuenow="${Math.round(width)}" tabindex="0" title="拖动调整宽度"></div>`;
+}
+
+function moduleQaUi() {
+  if (!["api", "skills"].includes(appState.page)) return "";
+  const welcome = appState.page === "api"
+    ? "可以帮你查找接口、理解参数，或把投研问题拆成可调用的数据步骤。"
+    : "可以帮你挑选技能、组合工作流，或直接开始一项投研任务。";
+  const suggestions = appState.page === "api"
+    ? ["查找实时行情接口", "这个 API 需要哪些参数？"]
+    : ["推荐一个公司研究技能", "帮我组合一套研究工作流"];
+  return `
+    <button class="module-qa-trigger ${appState.moduleQaOpen ? "is-open" : ""}" data-action="open-module-qa" aria-label="打开问答窗口" title="打开问答窗口">
+      ${icon("chevron")}<span>问答</span>
+    </button>
+    ${appState.moduleQaOpen ? `<aside class="module-qa-panel" aria-label="问答窗口">
+      ${panelResizeHandle("module-qa", appState.moduleQaWidth, 320, 720, "调整问答窗口宽度")}
+      <header class="module-qa-header module-qa-header-minimal">
+        <img class="module-qa-logo" src="${figmaAsset("robowork-logo.svg")}" alt="萝卜Work" />
+        <button class="module-qa-close" data-action="close-module-qa" aria-label="关闭问答窗口" title="关闭问答窗口">${icon("x")}</button>
+      </header>
+      <div class="module-qa-messages">
+        <div class="module-qa-welcome"><div><strong>你好，我是萝卜Work</strong><p>${welcome}</p></div></div>
+        <div class="module-qa-suggestions">${suggestions.map(prompt => `<button data-action="use-module-qa-suggestion" data-prompt="${escapeHtml(prompt)}">${escapeHtml(prompt)}</button>`).join("")}</div>
+        ${appState.moduleQaMessages.map(message => message.role === "user"
+          ? `<div class="module-qa-message user">${escapeHtml(message.text)}</div>`
+          : `<div class="module-qa-message assistant"><span class="module-qa-message-mark">${icon("bot")}</span><p>${escapeHtml(message.text)}</p></div>`).join("")}
+      </div>
+      <div class="module-qa-home-composer module-qa-work-composer">${composer("work")}</div>
+    </aside>` : ""}`;
 }
 
 function scheduleTimes(draft) {
@@ -1002,7 +1041,19 @@ function currentPage() {
   return workPage();
 }
 
+function layoutCssVariables() {
+  const variables = [
+    `--module-qa-width:${appState.moduleQaWidth}px`,
+    `--conversation-panel-list-width:${appState.conversationPanelListWidth}px`,
+  ];
+  if (Number.isFinite(appState.conversationPanelWidth)) {
+    variables.push(`--conversation-panel-width:${appState.conversationPanelWidth}px`);
+  }
+  return variables.join(";");
+}
+
 function render(options = {}) {
+  if (activePanelResize) finishPanelResize(activePanelResize.pointerId);
   const preserveFocus = options.focus;
   const composerValue = options.composerValue;
   if (composerValue !== undefined) appState.composerText = composerValue;
@@ -1017,11 +1068,12 @@ function render(options = {}) {
   } : null;
   const projectScrollTop = options.projectScrollTop ?? document.querySelector(".sidebar-scroll")?.scrollTop ?? 0;
   const isWorkConversation = appState.page === "work" && appState.workConversationStage !== "home";
-  const shellClasses = ["app-shell", appState.sidebarCollapsed ? "sidebar-collapsed" : "", options.suppressPageAnimation || scheduleModalWasOpen ? "suppress-page-animation" : ""].filter(Boolean).join(" ");
+  const moduleQaAvailable = ["api", "skills"].includes(appState.page);
+  const shellClasses = ["app-shell", appState.sidebarCollapsed ? "sidebar-collapsed" : "", moduleQaAvailable ? "module-qa-available" : "", appState.moduleQaOpen ? "module-qa-open" : "", options.suppressPageAnimation || scheduleModalWasOpen ? "suppress-page-animation" : ""].filter(Boolean).join(" ");
   const collapsedSidebarControls = appState.sidebarCollapsed
     ? `${isWorkConversation ? "" : `<button class="sidebar-expand-button" data-action="expand-sidebar" aria-label="展开侧栏" title="展开侧栏"><img src="${figmaAsset("sidebar-collapse.svg")}" alt="" /></button>`}<button class="sidebar-edge-trigger" data-action="expand-sidebar" aria-label="预览并展开侧栏" title="展开侧栏"></button>`
     : "";
-  document.querySelector("#app").innerHTML = `<div class="${shellClasses}">${topbar()}${collapsedSidebarControls}${sidebar()}<main class="main">${currentPage()}</main>${projectMenu()}${taskMenu()}${appState.scheduleModal ? scheduleModal({ updating: scheduleModalWasOpen }) : ""}${projectDialog()}${taskDialog()}</div>`;
+  document.querySelector("#app").innerHTML = `<div class="${shellClasses}" style="${layoutCssVariables()}">${topbar()}${collapsedSidebarControls}${sidebar()}<main class="main">${currentPage()}</main>${moduleQaUi()}${projectMenu()}${taskMenu()}${appState.scheduleModal ? scheduleModal({ updating: scheduleModalWasOpen }) : ""}${projectDialog()}${taskDialog()}</div>`;
   document.body.classList.toggle("modal-open", appState.scheduleModal || Boolean(appState.projectDialogMode) || Boolean(appState.taskDialogMode));
   const sidebarScroll = document.querySelector(".sidebar-scroll");
   if (sidebarScroll) sidebarScroll.scrollTop = projectScrollTop;
@@ -1045,6 +1097,118 @@ function render(options = {}) {
     window.scrollTo(viewport.x, viewport.y);
     requestAnimationFrame(() => window.scrollTo(viewport.x, viewport.y));
   }
+  requestAnimationFrame(constrainVisiblePanelWidths);
+}
+
+let activePanelResize = null;
+
+function clampPanelWidth(width, min, max) {
+  return Math.min(max, Math.max(min, width));
+}
+
+function panelResizeConfig(handle) {
+  const kind = handle.dataset.resizeHandle;
+  const panel = kind === "module-qa"
+    ? handle.closest(".module-qa-panel")
+    : handle.closest(".conversation-panel");
+  if (!panel) return null;
+
+  if (kind === "module-qa") {
+    const min = 320;
+    const max = Math.max(min, Math.min(720, window.innerWidth - 360));
+    return { kind, panel, stateKey: "moduleQaWidth", cssVariable: "--module-qa-width", min, max };
+  }
+
+  const pageWidth = panel.closest(".work-conversation-page")?.getBoundingClientRect().width || window.innerWidth;
+  const min = 280;
+  const max = Math.max(min, Math.min(920, pageWidth - 360));
+  const isListPanel = panel.matches(".artifact-list-panel, .workbench-panel");
+  return {
+    kind,
+    panel,
+    stateKey: isListPanel ? "conversationPanelListWidth" : "conversationPanelWidth",
+    cssVariable: isListPanel ? "--conversation-panel-list-width" : "--conversation-panel-width",
+    min,
+    max,
+  };
+}
+
+function applyPanelWidth(config, width, handle = config.panel.querySelector("[data-resize-handle]")) {
+  const nextWidth = Math.round(clampPanelWidth(width, config.min, config.max));
+  appState[config.stateKey] = nextWidth;
+  document.querySelector(".app-shell")?.style.setProperty(config.cssVariable, `${nextWidth}px`);
+  if (handle) {
+    handle.setAttribute("aria-valuemin", String(config.min));
+    handle.setAttribute("aria-valuemax", String(config.max));
+    handle.setAttribute("aria-valuenow", String(nextWidth));
+  }
+  return nextWidth;
+}
+
+function finishPanelResize(pointerId = null) {
+  if (!activePanelResize) return;
+  const { handle } = activePanelResize;
+  if (pointerId !== null && handle.hasPointerCapture?.(pointerId)) handle.releasePointerCapture(pointerId);
+  activePanelResize = null;
+  handle.classList.remove("is-dragging");
+  document.body.classList.remove("is-resizing-panels");
+}
+
+document.addEventListener("pointerdown", event => {
+  const handle = event.target.closest?.("[data-resize-handle]");
+  if (!handle || (event.pointerType === "mouse" && event.button !== 0)) return;
+  const config = panelResizeConfig(handle);
+  if (!config) return;
+  const startWidth = config.panel.getBoundingClientRect().width;
+  activePanelResize = { ...config, handle, pointerId: event.pointerId, startX: event.clientX, startWidth };
+  handle.setPointerCapture?.(event.pointerId);
+  handle.classList.add("is-dragging");
+  document.body.classList.add("is-resizing-panels");
+  event.preventDefault();
+});
+
+document.addEventListener("pointermove", event => {
+  if (!activePanelResize || activePanelResize.pointerId !== event.pointerId) return;
+  const width = activePanelResize.startWidth - (event.clientX - activePanelResize.startX);
+  applyPanelWidth(activePanelResize, width, activePanelResize.handle);
+  event.preventDefault();
+});
+
+document.addEventListener("pointerup", event => {
+  if (activePanelResize?.pointerId === event.pointerId) finishPanelResize(event.pointerId);
+});
+
+document.addEventListener("pointercancel", event => {
+  if (activePanelResize?.pointerId === event.pointerId) finishPanelResize(event.pointerId);
+});
+
+window.addEventListener("blur", () => finishPanelResize());
+
+function resizePanelFromKeyboard(event, handle) {
+  if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return false;
+  const config = panelResizeConfig(handle);
+  if (!config) return false;
+  const currentWidth = config.panel.getBoundingClientRect().width;
+  const step = event.shiftKey ? 32 : 16;
+  const nextWidth = event.key === "Home"
+    ? config.min
+    : event.key === "End"
+      ? config.max
+      : currentWidth + (event.key === "ArrowLeft" ? step : -step);
+  applyPanelWidth(config, nextWidth, handle);
+  event.preventDefault();
+  return true;
+}
+
+function constrainVisiblePanelWidths() {
+  document.querySelectorAll("[data-resize-handle]").forEach(handle => {
+    if (getComputedStyle(handle).display === "none") return;
+    const config = panelResizeConfig(handle);
+    const storedWidth = config ? appState[config.stateKey] : null;
+    if (!config) return;
+    const width = Number.isFinite(storedWidth) ? storedWidth : config.panel.getBoundingClientRect().width;
+    applyPanelWidth(config, width, handle);
+  });
 }
 
 function clearWorkConversationTimers() {
@@ -1460,6 +1624,11 @@ document.addEventListener("click", event => {
     appState.projectPickerOpen = false;
     appState.composerSkillPickerOpen = false;
     appState.composerModelPickerOpen = false;
+    if (!["api", "skills"].includes(pageButton.dataset.page)) {
+      if (appState.moduleQaOpen && appState.moduleQaSidebarWasCollapsed !== null) appState.sidebarCollapsed = appState.moduleQaSidebarWasCollapsed;
+      appState.moduleQaOpen = false;
+      appState.moduleQaSidebarWasCollapsed = null;
+    }
     appState.page = pageButton.dataset.page;
     window.history.replaceState(null, "", `#${appState.page}`);
     appState.mobileSidebar = false;
@@ -1557,6 +1726,27 @@ document.addEventListener("click", event => {
     render();
   }
   if (action === "expand-sidebar") { appState.sidebarCollapsed = false; render(); }
+  if (action === "open-module-qa") {
+    if (appState.moduleQaSidebarWasCollapsed === null) appState.moduleQaSidebarWasCollapsed = appState.sidebarCollapsed;
+    appState.moduleQaOpen = true;
+    appState.composerText = "";
+    appState.sidebarCollapsed = true;
+    appState.mobileSidebar = false;
+    render({ focus: "#composer-input", suppressPageAnimation: true });
+    return;
+  }
+  if (action === "close-module-qa") {
+    appState.moduleQaOpen = false;
+    if (appState.moduleQaSidebarWasCollapsed !== null) appState.sidebarCollapsed = appState.moduleQaSidebarWasCollapsed;
+    appState.moduleQaSidebarWasCollapsed = null;
+    render({ suppressPageAnimation: true });
+    return;
+  }
+  if (action === "use-module-qa-suggestion") {
+    appState.composerText = actionTarget.dataset.prompt || "";
+    render({ focus: "#composer-input", suppressPageAnimation: true });
+    return;
+  }
   if (action === "new-task") { appState.page = appState.page === "ai" ? "ai" : "work"; if (appState.page === "work") resetWorkConversation(); else appState.composerText = ""; appState.projectPickerOpen = false; appState.composerSkillPickerOpen = false; appState.composerModelPickerOpen = false; appState.selectedComposerSkills = []; render({ focus: "#composer-input" }); showToast(appState.page === "ai" ? "已新建会话" : "已新建任务"); }
   if (action === "remove-composer-skill") {
     const composerValue = document.querySelector("#composer-input")?.value ?? "";
@@ -1705,6 +1895,20 @@ document.addEventListener("click", event => {
     const input = document.querySelector("#composer-input");
     if (!input?.value.trim()) { input?.focus(); showToast("请输入内容后发送"); return; }
     if (appState.page === "work") { startWorkConversation(input.value.trim()); return; }
+    if (appState.moduleQaOpen && ["api", "skills"].includes(appState.page)) {
+      const question = input.value.trim();
+      const answer = appState.page === "api"
+        ? "我可以根据你的问题筛选接口，并说明请求方式、参数和返回字段。你也可以直接告诉我想查的数据。"
+        : "我可以按研究目标推荐技能，并把它们组合成一套可执行的投研工作流。";
+      appState.moduleQaMessages = [...appState.moduleQaMessages, { role: "user", text: question }, { role: "assistant", text: answer }];
+      appState.composerText = "";
+      render({ focus: "#composer-input", suppressPageAnimation: true });
+      requestAnimationFrame(() => {
+        const messages = document.querySelector(".module-qa-messages");
+        if (messages) messages.scrollTop = messages.scrollHeight;
+      });
+      return;
+    }
     showToast("问题已提交");
     appState.composerText = "";
     input.value = "";
@@ -2010,6 +2214,8 @@ document.addEventListener("change", event => {
 });
 
 document.addEventListener("keydown", event => {
+  const resizeHandle = event.target.closest?.("[data-resize-handle]");
+  if (resizeHandle && resizePanelFromKeyboard(event, resizeHandle)) return;
   if (["ArrowDown", "ArrowUp"].includes(event.key) && document.activeElement?.closest(".composer-picker-menu")) {
     event.preventDefault();
     const menu = document.activeElement.closest(".composer-picker-menu");
@@ -2081,6 +2287,12 @@ document.addEventListener("keydown", event => {
   if (event.key === "Escape" && appState.scheduleSkillPickerOpen) { appState.scheduleSkillPickerOpen = false; render({ focus: "[data-action='toggle-schedule-skill-picker']" }); return; }
   if (event.key === "Escape" && appState.scheduleModal) { appState.scheduleModal = false; appState.scheduleDraft = null; appState.editingScheduleId = null; appState.scheduleSkillPickerOpen = false; appState.scheduleModelPickerOpen = false; render(); return; }
   if (event.key === "Escape" && appState.mobileSidebar) { appState.mobileSidebar = false; render(); }
+  if (event.key === "Escape" && appState.moduleQaOpen) {
+    appState.moduleQaOpen = false;
+    if (appState.moduleQaSidebarWasCollapsed !== null) appState.sidebarCollapsed = appState.moduleQaSidebarWasCollapsed;
+    appState.moduleQaSidebarWasCollapsed = null;
+    render({ suppressPageAnimation: true });
+  }
 });
 
 window.addEventListener("hashchange", () => {
@@ -2092,6 +2304,9 @@ window.addEventListener("hashchange", () => {
     appState.composerSkillPickerOpen = false;
     appState.composerModelPickerOpen = false;
     appState.mobileSidebar = false;
+    if (appState.moduleQaOpen && appState.moduleQaSidebarWasCollapsed !== null) appState.sidebarCollapsed = appState.moduleQaSidebarWasCollapsed;
+    appState.moduleQaOpen = false;
+    appState.moduleQaSidebarWasCollapsed = null;
     render();
   }
 });
@@ -2115,6 +2330,11 @@ const dismissComposerPickers = event => {
 };
 
 document.addEventListener("scroll", event => { dismissSidebarMenus(); dismissComposerPickers(event); }, true);
-window.addEventListener("resize", () => { dismissSidebarMenus(); dismissComposerPickers(); });
+window.addEventListener("resize", () => {
+  finishPanelResize();
+  constrainVisiblePanelWidths();
+  dismissSidebarMenus();
+  dismissComposerPickers();
+});
 
 render();
